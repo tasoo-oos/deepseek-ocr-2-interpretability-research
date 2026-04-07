@@ -1,0 +1,23 @@
+# Core
+torch>=2.6.0
+transformers==4.46.3
+tokenizers==0.20.3
+einops
+addict
+easydict
+Pillow
+numpy
+safetensors
+huggingface_hub
+
+# Analysis & visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+scikit-learn>=1.3.0
+
+# Optional
+imageio>=2.31.0  # For attention animations
+
+# Development
+pytest
+jupyter
