@@ -12,6 +12,7 @@ import torch
 from typing import List, Optional
 
 from src.models.deepseek_ocr import DeepseekOCRModel
+from .sparse_autoencoder import SparseAutoencoder, ablate_sparse_features
 
 
 class InterventionManager:
@@ -101,6 +102,47 @@ class InterventionManager:
         handle = self.model.qwen2_model.register_forward_hook(hook)
         self.interventions.append(handle)
 
+    def ablate_query_states_in_layer(
+        self,
+        layer: int,
+        start_idx: int = 0,
+        end_idx: Optional[int] = None,
+    ) -> None:
+        """
+        Zero out query-token hidden states at a specific D2E layer.
+
+        Unlike ``ablate_query_tokens()``, this intervenes on the full D2E
+        sequence inside the transformer stack, so downstream query positions
+        can still react to the ablation through the causal query->query path.
+
+        Args:
+            layer:     D2E layer index.
+            start_idx: First query position to zero, relative to query start.
+            end_idx:   Last query position (exclusive). None = all remaining.
+        """
+        target = self.model.qwen2_model.model.model.layers[layer]
+
+        def hook(module, input, output):
+            if isinstance(output, tuple):
+                hidden = output[0].clone()
+                rest = output[1:]
+            else:
+                hidden = output.clone()
+                rest = ()
+
+            seq_len = hidden.shape[1]
+            n_image = seq_len // 2
+            query_start = n_image + start_idx
+            query_end = seq_len if end_idx is None else min(seq_len, n_image + end_idx)
+            hidden[:, query_start:query_end, :] = 0.0
+
+            if isinstance(output, tuple):
+                return (hidden, *rest)
+            return hidden
+
+        handle = target.register_forward_hook(hook)
+        self.interventions.append(handle)
+
     def ablate_image_tokens(
         self, layer: int, start_idx: int = 0, end_idx: Optional[int] = None
     ) -> None:
@@ -129,6 +171,50 @@ class InterventionManager:
                 else:
                     out[:, start_idx:end_idx, :] = 0.0
                 return out
+
+        handle = target.register_forward_hook(hook)
+        self.interventions.append(handle)
+
+    def ablate_sae_features_in_query_states(
+        self,
+        layer: int,
+        sae: SparseAutoencoder,
+        feature_indices,
+        *,
+        mode: str = "subtract_decoder",
+    ) -> None:
+        """
+        Remove selected SAE features from query-token hidden states in one D2E layer.
+
+        Args:
+            layer: D2E layer index.
+            sae: Trained sparse autoencoder for this layer's query states.
+            feature_indices: Sparse feature ids to remove.
+            mode: ``subtract_decoder`` or ``reconstruct``.
+        """
+        target = self.model.qwen2_model.model.model.layers[layer]
+
+        def hook(module, input, output):
+            if isinstance(output, tuple):
+                hidden = output[0].clone()
+                rest = output[1:]
+            else:
+                hidden = output.clone()
+                rest = ()
+
+            seq_len = hidden.shape[1]
+            n_image = seq_len // 2
+            query_hidden = hidden[:, n_image:, :]
+            hidden[:, n_image:, :] = ablate_sparse_features(
+                query_hidden,
+                sae,
+                feature_indices,
+                mode=mode,
+            )
+
+            if isinstance(output, tuple):
+                return (hidden, *rest)
+            return hidden
 
         handle = target.register_forward_hook(hook)
         self.interventions.append(handle)

@@ -16,6 +16,13 @@ _EXPORTS = {
     "ViewAblationResult": ".view_analysis",
     "LinearSpatialProbe": ".spatial_analysis",
     "SpatialProbeMetrics": ".spatial_analysis",
+    "SparseAutoencoder": ".sparse_autoencoder",
+    "SparseAutoencoderAnalyzer": ".sparse_autoencoder",
+    "SparseAutoencoderMetrics": ".sparse_autoencoder",
+    "SparseAutoencoderSummary": ".sparse_autoencoder",
+    "SparseAutoencoderTrainer": ".sparse_autoencoder",
+    "SparseFeatureSummary": ".sparse_autoencoder",
+    "ablate_sparse_features": ".sparse_autoencoder",
 }
 
 
@@ -38,4 +45,11 @@ __all__ = [
     "ViewAblationResult",
     "LinearSpatialProbe",
     "SpatialProbeMetrics",
+    "SparseAutoencoder",
+    "SparseAutoencoderAnalyzer",
+    "SparseAutoencoderMetrics",
+    "SparseAutoencoderSummary",
+    "SparseAutoencoderTrainer",
+    "SparseFeatureSummary",
+    "ablate_sparse_features",
 ]

@@ -92,3 +92,42 @@ def test_head_ablation_changes_output(model, dummy_inputs):
 
     # Output should differ after ablation
     assert not torch.allclose(baseline_tensor, ablated_tensor, atol=1e-6)
+
+
+def test_layer_query_state_ablation_changes_output(model, dummy_inputs):
+    from src.analysis.interventions import InterventionManager
+
+    pixel_values = dummy_inputs["pixel_values"][0].to(dtype=torch.bfloat16)
+
+    with torch.no_grad():
+        sam_features = model.sam_model(pixel_values)
+        baseline = model.qwen2_model(sam_features)
+
+    with InterventionManager(model) as mgr:
+        mgr.ablate_query_states_in_layer(layer=0, start_idx=0, end_idx=16)
+        with torch.no_grad():
+            ablated = model.qwen2_model(sam_features)
+
+    assert baseline.shape == ablated.shape
+    assert not torch.allclose(baseline, ablated, atol=1e-6)
+
+
+def test_sae_feature_ablation_changes_output(model, dummy_inputs):
+    from src.analysis.interventions import InterventionManager
+    from src.analysis.sparse_autoencoder import SparseAutoencoder
+
+    pixel_values = dummy_inputs["pixel_values"][0].to(dtype=torch.bfloat16)
+
+    with torch.no_grad():
+        sam_features = model.sam_model(pixel_values)
+        baseline = model.qwen2_model(sam_features)
+
+    sae = SparseAutoencoder(input_dim=baseline.shape[-1], n_features=16)
+
+    with InterventionManager(model) as mgr:
+        mgr.ablate_sae_features_in_query_states(layer=0, sae=sae, feature_indices=[0, 1])
+        with torch.no_grad():
+            ablated = model.qwen2_model(sam_features)
+
+    assert baseline.shape == ablated.shape
+    assert not torch.allclose(baseline, ablated, atol=1e-6)
