@@ -94,6 +94,27 @@ class SparseAutoencoderTests(unittest.TestCase):
         expected = torch.tensor([[0.0, 2.0], [0.0, 0.5]])
         self.assertTrue(torch.allclose(ablated, expected, atol=1e-6))
 
+    def test_topk_encoder_limits_number_of_active_features(self):
+        sae = SparseAutoencoder(input_dim=3, n_features=5, activation_mode="topk", top_k=2)
+        with torch.no_grad():
+            sae.encoder.weight.copy_(
+                torch.tensor(
+                    [
+                        [1.0, 0.0, 0.0],
+                        [0.0, 1.0, 0.0],
+                        [0.0, 0.0, 1.0],
+                        [1.0, 1.0, 0.0],
+                        [0.0, 1.0, 1.0],
+                    ]
+                )
+            )
+            sae.encoder.bias.zero_()
+
+        x = torch.tensor([[1.0, 2.0, 3.0]])
+        codes = sae.encode(x)
+
+        self.assertEqual(int((codes > 0).sum().item()), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

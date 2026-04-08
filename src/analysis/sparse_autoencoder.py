@@ -48,12 +48,21 @@ class SparseAutoencoderSummary:
 
 
 class SparseAutoencoder(nn.Module):
-    """A small ReLU sparse autoencoder with unit-normalized decoder columns."""
+    """Sparse autoencoder with configurable encoder sparsification."""
 
-    def __init__(self, input_dim: int, n_features: int):
+    def __init__(
+        self,
+        input_dim: int,
+        n_features: int,
+        *,
+        activation_mode: str = "relu",
+        top_k: Optional[int] = None,
+    ):
         super().__init__()
         self.input_dim = input_dim
         self.n_features = n_features
+        self.activation_mode = activation_mode
+        self.top_k = top_k
         self.encoder = nn.Linear(input_dim, n_features)
         self.decoder = nn.Linear(n_features, input_dim, bias=False)
         self.reset_parameters()
@@ -69,7 +78,19 @@ class SparseAutoencoder(nn.Module):
             self.decoder.weight.div_(self.decoder.weight.norm(dim=0, keepdim=True).clamp_min(1e-8))
 
     def encode(self, x: torch.Tensor) -> torch.Tensor:
-        return F.relu(self.encoder(x))
+        pre = self.encoder(x)
+        if self.activation_mode == "relu":
+            return F.relu(pre)
+        if self.activation_mode == "topk":
+            if self.top_k is None or self.top_k <= 0:
+                raise ValueError("top_k must be a positive integer when activation_mode='topk'.")
+            activations = F.relu(pre)
+            k = min(self.top_k, activations.shape[-1])
+            top_values, top_indices = torch.topk(activations, k=k, dim=-1)
+            sparse = torch.zeros_like(activations)
+            sparse.scatter_(-1, top_indices, top_values)
+            return sparse
+        raise ValueError(f"Unknown activation_mode: {self.activation_mode!r}")
 
     def decode(self, codes: torch.Tensor) -> torch.Tensor:
         return self.decoder(codes)

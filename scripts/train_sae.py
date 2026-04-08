@@ -43,6 +43,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch_size", type=int, default=2048)
     parser.add_argument("--lr", type=float, default=3e-4)
     parser.add_argument("--l1_coeff", type=float, default=1e-3)
+    parser.add_argument("--activation_mode", default="relu", choices=["relu", "topk"])
+    parser.add_argument("--top_k", type=int, default=None)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--save_example_count", type=int, default=12)
     parser.add_argument("--min_activation_frequency", type=float, default=0.01)
@@ -442,7 +444,14 @@ def main() -> None:
         "stimulus": metadata["stimulus"],
     }
 
-    sae = SparseAutoencoder(input_dim=activation_tensor.shape[1], n_features=args.dictionary_size)
+    if args.activation_mode == "topk" and (args.top_k is None or args.top_k <= 0):
+        raise ValueError("--top_k must be set to a positive integer when --activation_mode=topk")
+    sae = SparseAutoencoder(
+        input_dim=activation_tensor.shape[1],
+        n_features=args.dictionary_size,
+        activation_mode=args.activation_mode,
+        top_k=args.top_k,
+    )
     trainer = SparseAutoencoderTrainer(
         sae,
         lr=args.lr,
@@ -493,6 +502,8 @@ def main() -> None:
         "batch_size": args.batch_size,
         "lr": args.lr,
         "l1_coeff": args.l1_coeff,
+        "activation_mode": args.activation_mode,
+        "top_k": args.top_k,
         "seed": args.seed,
         "device": args.device,
         "dtype": args.dtype,
