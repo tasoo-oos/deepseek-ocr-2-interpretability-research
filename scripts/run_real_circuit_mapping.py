@@ -18,7 +18,7 @@ from typing import Dict, List
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import torch
-from PIL import Image, ImageFilter
+from PIL import Image, ImageFilter, ImageStat
 
 from src.analysis.interventions import InterventionManager
 from src.analysis.real_circuit_mapping import (
@@ -89,11 +89,8 @@ def corrupt_region(image: Image.Image, bbox, mode: str) -> Image.Image:
     elif mode == "blur":
         patch = patch.filter(ImageFilter.GaussianBlur(radius=12.0))
     else:
-        pixels = list(patch.getdata())
-        if pixels:
-            mean = tuple(int(sum(channel) / len(channel)) for channel in zip(*pixels))
-        else:
-            mean = (255, 255, 255)
+        stat = ImageStat.Stat(patch)
+        mean = tuple(int(channel) for channel in stat.mean) if stat.mean else (255, 255, 255)
         patch = Image.new("RGB", patch.size, color=mean)
 
     corrupted.paste(patch, (x0, y0))
