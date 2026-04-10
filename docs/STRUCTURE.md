@@ -156,6 +156,7 @@ The main CLIs are:
 - `scripts/extract_attention.py`
 - `scripts/extract_features.py`
 - `scripts/run_interventions.py`
+- `scripts/run_real_circuit_mapping.py`
 - `scripts/train_sae.py`
 - `scripts/run_sae_feature_ablation.py`
 - `scripts/research_causal_tokens.py`

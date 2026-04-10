@@ -189,6 +189,7 @@ result = analyzer.compare(model_inputs, score_fn=my_metric)
 | `scripts/extract_attention.py` | Extract and visualize D2E attention patterns. Supports `--synthetic` mode (no weights needed) and `--full_report`. |
 | `scripts/extract_features.py` | Capture intermediate activations via hooks, save to `.pt` file. |
 | `scripts/run_interventions.py` | Run ablation experiments (head, query, SAM head) and report embedding norm changes. |
+| `scripts/run_real_circuit_mapping.py` | Map causal D2E sites on OmniDocBench pages by corrupting annotated regions and patching query states. |
 | `scripts/run_omnidocbench.py` | Bulk OmniDocBench inference with filtering, pagination, dry-run, and benchmark-ready markdown export. |
 | `scripts/check_omnidocbench_outputs.py` | Validate OmniDocBench runner outputs and optionally compare against reference markdown. |
 | `scripts/simple_inference.py` | Single-image OCR inference via the research pipeline. |
@@ -204,6 +205,9 @@ uv run python scripts/extract_features.py --image_path input/example.jpg --outpu
 
 # Head ablation experiment
 uv run python scripts/run_interventions.py --image_path input/example.jpg --ablate_head 12,7
+
+# Real-document circuit mapping on table regions
+uv run python scripts/run_real_circuit_mapping.py --dataset_root /path/to/OmniDocBench --region_type table --limit 10
 
 # Bulk OmniDocBench run + output validation
 uv run python scripts/run_omnidocbench.py --dataset_root /path/to/OmniDocBench --output_dir output/omnidocbench --limit 20
@@ -230,6 +234,7 @@ RUN_GPU_TESTS=1 uv run --extra dev pytest tests/ -v
 | `test_circuits.py` | Activation patching, circuit ranking |
 | `test_projector_analysis.py` | SVD recovery, effective rank, logit lens |
 | `test_query_analysis.py` | Query bank geometry, cross-resolution similarity, group ablation |
+| `test_real_circuit_mapping.py` | Region-box parsing, square-view mapping, target-query selection, alignment scoring |
 | `test_spatial_analysis.py` | Linear probe fitting, pre-fit error guard |
 | `test_view_analysis.py` | Local/global ablation, input immutability |
 | `test_omnidocbench.py` | Dataset loading with filters, bulk runner output, dry-run |
