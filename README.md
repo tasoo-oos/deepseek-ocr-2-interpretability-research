@@ -25,7 +25,7 @@ Input Image
              Linear Projector  (896-dim -> 1280-dim)
                     |               |
                     v               v
-             Concat [local, view_separator, global]
+             Concat [local, global, view_separator]
                     |
                     v
              DeepSeek Language Model -> Markdown
@@ -238,7 +238,8 @@ RUN_GPU_TESTS=1 uv run --extra dev pytest tests/ -v
 
 `DeepseekOCRPipeline.from_pretrained(...)` now follows the upstream `AutoModel(..., trust_remote_code=True)` loading path, with a fallback from FlashAttention to eager attention when `flash_attn` is unavailable. The pipeline returns cleaned markdown by default, stripping `<|ref|>/<|det|>` annotations from the saved `.mmd` output.
 
-The original DeepSeek-OCR-2 inference code is preserved in `DeepSeek-OCR2-master/` for reference:
+This repo does not vendor the original DeepSeek-OCR-2 source tree. The upstream
+inference path is accessed directly through the Hugging Face model:
 
 ```python
 from transformers import AutoModel, AutoTokenizer
@@ -277,24 +278,25 @@ deepseek-ocr-2/
 |   +-- benchmarks/          # OmniDocBench dataset loader/runner
 |   +-- config.py            # Central constants
 +-- scripts/                 # CLI entry points
-+-- tests/                   # 30 tests across 9 files
-+-- notebooks/               # Jupyter exploration notebooks
-+-- docs/                    # Detailed documentation
-+-- DeepSeek-OCR2-master/    # Upstream reference inference code
-+-- input/                   # Input data (OmniDocBench, PDFs)
-+-- output/                  # Generated outputs
++-- tests/                   # Unit and integration coverage
++-- docs/                    # Architecture, API, and research notes
++-- input/                   # Dataset notes and sample inputs
++-- output/                  # Saved experiment artifacts and reports
 ```
 
 ## Documentation
 
 | Document | Description |
 |----------|-------------|
+| [docs/RESEARCH_AUDIT.md](docs/RESEARCH_AUDIT.md) | Implementation-grounded findings, undocumented behaviors, and experiment-backed observations |
 | [docs/STRUCTURE.md](docs/STRUCTURE.md) | Full architecture documentation with component details |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Pipeline diagrams, module overview, key dimensions |
 | [docs/API.md](docs/API.md) | API reference for all public classes |
 | [docs/ATTENTION_ANALYSIS.md](docs/ATTENTION_ANALYSIS.md) | Attention extraction and visualization guide |
+| [docs/VISUALIZATION.md](docs/VISUALIZATION.md) | Current visualization workflow and report generation paths |
 | [docs/MECH_INTERP_TESTS.md](docs/MECH_INTERP_TESTS.md) | Dry-run test philosophy and lightweight test guide |
 | [docs/OMNIDOCBENCH.md](docs/OMNIDOCBENCH.md) | OmniDocBench data format and bulk runner usage |
+| [docs/SPARSE_AUTO_ENCODER.md](docs/SPARSE_AUTO_ENCODER.md) | SAE workflow and layer-12 decomposition results |
 
 ## Acknowledgement
 

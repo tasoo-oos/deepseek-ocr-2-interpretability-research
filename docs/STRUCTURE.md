@@ -1,216 +1,175 @@
-# DeepSeek-OCR-2: Visual Causal Flow — Code Structure
+# DeepSeek-OCR-2 Code Structure
+
+This document describes the current repository layout and how the main research
+components fit together. It reflects the code that exists in this repo today,
+not the older upstream project layout.
 
 ## Directory Layout
 
-```
+```text
 deepseek-ocr-2/
-├── DeepSeek-OCR2-master/
-│   ├── DeepSeek-OCR2-vllm/                  # vLLM-based inference (primary)
-│   │   ├── deepencoderv2/                    # Vision encoding modules
-│   │   │   ├── sam_vary_sdpa.py              #   SAM ViT-B image encoder
-│   │   │   ├── qwen2_d2e.py                  #   Qwen2 decoder-as-encoder
-│   │   │   └── build_linear.py               #   MLP projector (feature projection)
-│   │   ├── process/                          # Preprocessing pipeline
-│   │   │   ├── image_process.py              #   Image tokenization & dynamic cropping
-│   │   │   └── ngram_norepeat.py             #   N-gram repetition logits processor
-│   │   ├── config.py                         # Runtime configuration
-│   │   ├── deepseek_ocr2.py                  # Main vLLM model definition
-│   │   ├── run_dpsk_ocr2_image.py            # Single-image inference (async streaming)
-│   │   ├── run_dpsk_ocr2_pdf.py              # PDF batch processing
-│   │   └── run_dpsk_ocr2_eval_batch.py       # Benchmark evaluation
-│   └── DeepSeek-OCR2-hf/                     # HuggingFace Transformers inference
-│       └── run_dpsk_ocr2.py                  #   Direct transformers usage
-├── input/                                    # Input files
-├── output/                                   # Generated results
-├── assets/                                   # Documentation assets
-├── requirements.txt                          # Python dependencies
-├── LICENSE.txt
-└── README.md
+├── src/
+│   ├── analysis/          # Interpretability tooling
+│   ├── benchmarks/        # OmniDocBench helpers
+│   ├── inference/         # End-to-end OCR pipeline
+│   ├── models/            # SAM, D2E, projector, full vision stack
+│   ├── preprocessing/     # Global-view + crop preprocessing
+│   ├── visualization/     # Attention and feature plotting
+│   └── config.py          # Shared constants
+├── scripts/               # CLI entry points for experiments and utilities
+├── tests/                 # CPU-friendly tests + optional GPU checks
+├── docs/                  # Architecture, API, and research notes
+├── input/                 # Dataset notes and local inputs
+├── output/                # Saved experiment artifacts and reports
+├── README.md
+├── pyproject.toml
+└── requirements.txt
 ```
 
-Additional documentation:
+## End-To-End Flow
 
-- `docs/ARCHITECTURE.md` — cleaned architecture reference for the research codebase
-- `docs/API.md` — API reference for models, preprocessing, analysis, visualization, and inference
-- `docs/ATTENTION_ANALYSIS.md` — D2E attention extraction and visualization guide
-- `docs/MECH_INTERP_TESTS.md` — dry-run mechanistic interpretability test guide for slow hardware
-- `docs/OMNIDOCBENCH.md` — OmniDocBench data format notes and bulk inference runner usage
-
-## Model Architecture
-
-The model follows a **Vision-to-Language** multimodal pipeline with a novel "Visual Causal Flow" attention mechanism.
-
-```
-Input Image
-    │
-    ├─── Global View (1024×1024, padded) ───┐
-    │                                       │
-    └─── Local Views (N × 768×768 crops) ──┐│
-                                           ││
-                          ┌────────────────┘│
-                          ▼                 ▼
-                   SAM ViT-B Encoder (768-dim → 896-dim via neck)
-                          │                 │
-                          ▼                 ▼
-                   Qwen2 Decoder-as-Encoder (896-dim)
-                   (mixed causal / non-causal attention)
-                          │                 │
-                          ▼                 ▼
-                   MLP Projector (896-dim → 1280-dim)
-                          │                 │
-                          ▼                 ▼
-                   Concat [local, global, view_separator]
-                          │
-                          ▼
-                   Merge into text embeddings at <image> positions
-                          │
-                          ▼
-                   DeepSeek Language Model → Markdown text
+```text
+input image
+    ->
+ImageProcessor
+    - global padded view: 1024 x 1024
+    - local dynamic crops: N x 768 x 768
+    ->
+SAM encoder
+    - ViT-B backbone
+    - neck + two strided convs
+    - output: [B, 896, H, W]
+    ->
+Qwen2 Decoder-as-Encoder
+    - flatten image tokens
+    - append learned query bank
+    - apply Visual Causal Flow mask
+    - keep query half of the sequence
+    ->
+linear projector
+    - 896 -> 1280
+    ->
+concat [local, global, view_seperator]
+    ->
+optional language-model merge at <image> token positions
 ```
 
-### Component Details
+## Core Modules
 
-#### 1. SAM Vision Encoder (`sam_vary_sdpa.py`)
+### `src/models/`
 
-`ImageEncoderViT` — a Vision Transformer based on SAM (Segment Anything Model):
+- `sam_encoder.py`
+  - Reimplementation of the SAM ViT-B image encoder with a `256 -> 512 -> 896`
+    downsampling neck.
+- `qwen2_d2e.py`
+  - Qwen2-based Decoder-as-Encoder with the custom Visual Causal Flow mask.
+- `projector.py`
+  - Default linear projector from 896-dim visual states to 1280-dim language
+    embeddings.
+- `deepseek_ocr.py`
+  - Full research model wrapper exposing the vision path and optional language
+    model integration.
 
-| Parameter       | Value                    |
-|-----------------|--------------------------|
-| Image size      | 1024×1024                |
-| Patch size      | 16×16                    |
-| Embedding dim   | 768                      |
-| Depth           | 12 transformer blocks    |
-| Attention heads | 12                       |
-| Window size     | 14 (local attention)     |
-| Global attn     | Layers 2, 5, 8, 11       |
+### `src/preprocessing/`
 
-The **neck** downsamples and projects: Conv(256→512, stride 2) → Conv(512→896, stride 2), producing 896-dim spatial features.
+- `dynamic_cropping.py`
+  - Chooses the crop grid from aspect ratio and crop-count constraints.
+- `image_transforms.py`
+  - Builds the global padded view and local crop tensors expected by the model.
 
-Key classes: `ImageEncoderViT`, `Block`, `Attention`, `PatchEmbed`, `LayerNorm2d`
+### `src/analysis/`
 
-#### 2. Qwen2 Decoder-as-Encoder (`qwen2_d2e.py`)
+- `attention_analysis.py`
+  - Extracts D2E attentions and computes per-head specialization metrics.
+- `feature_extractor.py`
+  - Registers forward hooks on SAM blocks, D2E layers, and projector output.
+- `interventions.py`
+  - Head ablations, token-state ablations, activation patching, and SAE feature
+    ablations.
+- `circuits.py`
+  - Activation-patching search over `(layer, position)` candidates.
+- `projector_analysis.py`
+  - SVD and logit-lens style analysis for the projector bottleneck.
+- `query_analysis.py`
+  - Query-bank geometry and query-group ablation utilities.
+- `spatial_analysis.py`
+  - Closed-form ridge probe for spatial coordinate decoding.
+- `view_analysis.py`
+  - Local-vs-global view ablation helpers.
+- `sparse_autoencoder.py`
+  - SAE training, summarization, and sparse-feature ablation support.
 
-`Qwen2Decoder2Encoder` — uses a Qwen2 decoder with custom attention masking as a visual encoder.
+### `src/visualization/`
 
-| Parameter          | Value    |
-|--------------------|----------|
-| Decoder layers     | 24       |
-| Hidden dim         | 896      |
-| Attention heads    | 14       |
-| KV heads           | 2        |
-| Intermediate size  | 4864     |
-| Max position embed | 131,072  |
+- `attention_viz.py`
+  - Attention mask, query-to-image, causal-flow, and report-generation plots.
+- `feature_viz.py`
+  - SAM feature maps, D2E hidden-state plots, and projector visualizations.
+- `utils.py`
+  - Shared helpers for entropy, spatial reshaping, mask visualization, and
+    image overlays.
 
-**Visual Causal Flow mechanism:**
-- `token_type_ids=0` (image tokens): **non-causal** attention — image tokens attend to all other image tokens
-- `token_type_ids=1` (query tokens): **causal** attention — queries attend only to preceding tokens
-- Learnable query embeddings: `query_768` (144 queries for 768px patches), `query_1024` (256 queries for 1024px global view)
+### `src/inference/`
 
-Forward pass: flatten spatial features → concat with learned queries → mixed-attention Qwen2 → extract causal query outputs.
+- `pipeline.py`
+  - Loads the upstream Hugging Face model with `trust_remote_code=True` and
+    exposes a cleaned OCR interface.
+- `batch_inference.py`
+  - Repeated pipeline execution across many images.
 
-#### 3. MLP Projector (`build_linear.py`)
+### `src/benchmarks/`
 
-`MlpProjector` — projects vision features into the language model's embedding space.
+- `omnidocbench.py`
+  - Dataset-aware loader used by the bulk benchmark runner.
 
-Default: single linear layer (896 → 1280). Supports multiple modes: `identity`, `linear`, `mlp_gelu`, `downsample_mlp_gelu`, etc.
+## Important Structural Details
 
-#### 4. Language Model (`deepseek_ocr2.py`)
+### Visual Causal Flow lives inside Qwen2 masking
 
-`DeepseekOCR2ForCausalLM` — the full vision-language model. Selects language backbone based on config:
-- `DeepseekV3ForCausalLM` (if `topk_method == "noaux_tc"`)
-- `DeepseekV2ForCausalLM` (if `use_mla == True`)
-- `DeepseekForCausalLM` (fallback)
+The D2E module subclasses `Qwen2Model` and overrides the causal-mask update to
+build a full 4-D mask from `token_type_ids`.
 
-A learnable `view_separator` (1280-dim) token separates local and global view embeddings.
+### Query banks are resolution-specific
 
-## Image Processing Pipeline (`process/image_process.py`)
+- `query_768`: 144 queries
+- `query_1024`: 256 queries
 
-### Dynamic Cropping
+The query count always matches the number of image tokens for that resolution.
 
-`dynamic_preprocess(image, min_num=2, max_num=6, image_size=768)`:
-1. Compute aspect ratio of input image
-2. Find optimal tiling arrangement (e.g., 2×3) minimizing wasted area
-3. Resize image to fill tile grid
-4. Crop into individual 768×768 patches
+### Local and global views share weights
 
-### Tokenization
+The same SAM, D2E, and projector modules process both view types. They are only
+combined after projection.
 
-`tokenize_with_images(images, prompt)`:
-1. Split prompt on `<image>` tags
-2. For each image:
-   - Create **global view**: pad to 1024×1024
-   - Create **local views**: dynamic crop into 768×768 patches (if image > 768×768)
-3. Normalize tensors (mean=0.5, std=0.5)
-4. Compute visual token counts:
-   - Per view: `(size // 16) // 4 = 16` → 16×16 = **256 tokens**
-   - Total: `local_tokens + global_tokens + 1` (separator)
-5. Output: `input_ids`, `pixel_values`, `images_crop`, `images_spatial_crop`, `images_seq_mask`
+### The separator token is appended last
 
-### Generation Constraints (`process/ngram_norepeat.py`)
+The multimodal embedding sequence is:
 
-`NoRepeatNGramLogitsProcessor` — prevents n-gram repetition during decoding:
-- `ngram_size=20`, `window_size=90` (images) / `50` (PDFs)
-- Whitelist: `{128821, 128822}` (`<td>`, `</td>`)
+- local projected tokens
+- global projected tokens
+- one learned `view_seperator` parameter
 
-## Inference Modes
+## Scripts
 
-### 1. Single Image — `run_dpsk_ocr2_image.py`
+The main CLIs are:
 
-Async streaming via vLLM `AsyncLLMEngine`:
-- Loads image, corrects EXIF orientation
-- Streams tokens as generated
-- Post-processes: extracts grounding references, draws bounding boxes, saves markdown
+- `scripts/extract_attention.py`
+- `scripts/extract_features.py`
+- `scripts/run_interventions.py`
+- `scripts/train_sae.py`
+- `scripts/run_sae_feature_ablation.py`
+- `scripts/research_causal_tokens.py`
+- `scripts/run_omnidocbench.py`
+- `scripts/check_omnidocbench_outputs.py`
+- `scripts/simple_inference.py`
 
-Engine config: `dtype=bfloat16`, `max_model_len=8192`, `gpu_memory_utilization=0.75`
+## Outputs
 
-### 2. PDF Batch — `run_dpsk_ocr2_pdf.py`
+The repo already contains experiment artifacts under `output/`, including:
 
-Concurrent multi-page processing:
-- Converts PDF pages to images via PyMuPDF (dpi=144)
-- Preprocesses in parallel (64 workers)
-- Batch generates with vLLM (max concurrency=100, GPU util=0.9)
-- Outputs: raw `.mmd`, cleaned `.mmd`, layout visualization PDF
+- attention reports
+- causal-token research summaries
+- SAE summaries and ablation summaries
 
-### 3. Benchmark Evaluation — `run_dpsk_ocr2_eval_batch.py`
-
-Batch evaluation over image directories (e.g., OmniDocBench).
-
-### 4. HuggingFace — `DeepSeek-OCR2-hf/run_dpsk_ocr2.py`
-
-Direct `AutoModel.from_pretrained` usage with `model.infer()` API.
-
-## Configuration (`config.py`)
-
-| Parameter         | Default | Description                           |
-|-------------------|---------|---------------------------------------|
-| `BASE_SIZE`       | 1024    | Global view image size                |
-| `IMAGE_SIZE`      | 768     | Local crop patch size                 |
-| `CROP_MODE`       | True    | Enable dynamic cropping               |
-| `MIN_CROPS`       | 2       | Minimum crop count                    |
-| `MAX_CROPS`       | 6       | Maximum crop count                    |
-| `MAX_CONCURRENCY` | 100     | Max concurrent vLLM requests          |
-| `NUM_WORKERS`     | 64      | Image preprocessing workers           |
-| `SKIP_REPEAT`     | True    | Skip duplicate outputs                |
-| `MODEL_PATH`      | `deepseek-ai/DeepSeek-OCR-2` | HuggingFace model ID    |
-| `PROMPT`          | `<image>\n<|grounding|>Convert the document to markdown.` | Default prompt |
-
-## Special Tokens
-
-| Token             | Purpose                              |
-|-------------------|--------------------------------------|
-| `<image>`         | Image placeholder (id=32000)         |
-| `<\|grounding\|>` | Enables grounding/layout mode        |
-| `<\|ref\|>` / `<\|/ref\|>` | Reference label wrapper     |
-| `<\|det\|>` / `<\|/det\|>` | Bounding box coordinates    |
-
-Grounding output example:
-```
-<|ref|>figure<|/ref|><|det|>[[100,200,300,400]]<|/det|>
-```
-Coordinates are normalized to 0–999 range and scaled to image dimensions.
-
-## Dependencies
-
-Core: `transformers==4.46.3`, `tokenizers==0.20.3`, `PyMuPDF`, `img2pdf`, `einops`, `easydict`, `addict`, `Pillow`, `numpy`
-
-Runtime: PyTorch 2.6.0 (CUDA 11.8+), vLLM 0.8.5, Flash Attention 2.7.3
+Those saved results are referenced by `docs/RESEARCH_AUDIT.md` and
+`docs/SPARSE_AUTO_ENCODER.md`.
