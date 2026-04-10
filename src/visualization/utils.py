@@ -185,7 +185,7 @@ def overlay_attention_on_image(
     Returns:
         Blended PIL Image.
     """
-    import matplotlib.cm as cm
+    import matplotlib
 
     img_w, img_h = image.size
     attn_resized = np.array(
@@ -194,7 +194,7 @@ def overlay_attention_on_image(
         )
     ) / 255.0
 
-    cmap = cm.get_cmap(colormap)
+    cmap = matplotlib.colormaps.get_cmap(colormap)
     attn_colored = (cmap(attn_resized)[:, :, :3] * 255).astype(np.uint8)
     img_array = np.array(image.convert("RGB"))
     blended = (alpha * attn_colored + (1 - alpha) * img_array).astype(np.uint8)
