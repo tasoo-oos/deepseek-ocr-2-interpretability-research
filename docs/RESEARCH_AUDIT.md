@@ -101,7 +101,46 @@ multimodal sequence.
 These findings are backed by saved experiment outputs already present in the
 repo, not by fresh reruns in this audit.
 
-### 1. Query index tracks vertical reading order much more strongly than horizontal order
+### 1. Full OmniDocBench sweep confirms query order tracks layout order
+
+From `output/query_trace_mask_ablation_v2_full/summary.md`:
+
+- the full sweep covers `1355` OmniDocBench pages
+- local-path inside-layout Spearman is `0.6468`; global-path inside-layout
+  Spearman is `0.4809`
+- local-path inside coverage is `0.9418`; global-path inside coverage is
+  `0.7960`
+- local ordering remains stronger across single-column, double-column,
+  three-column, and mixed layouts
+
+Interpretation:
+
+- the local crop path gives the strongest evidence for a learned reading-order
+  trace
+- the global path still carries order information, but its assignments are less
+  clean on dense or multi-column pages
+
+### 2. Mask and order ablations separate visual access from causal sequencing
+
+From `output/query_trace_mask_ablation_v2_full/summary.md`:
+
+- blocking query-to-visual attention collapses inside coverage to `0.0000`
+- removing query-to-query causality shifts representations more on local tokens
+  than global tokens: local index cosine shift `0.1589` vs global `0.0739`
+- reversing final queries leaves unordered similarity near zero but destroys
+  position-aligned order: global index cosine shift `0.8333`, local `0.7625`
+- shuffling final queries drives inversion rates to random-order levels near
+  `0.5`
+
+Interpretation:
+
+- visual access is necessary for layout grounding
+- query-to-query causality is not the only source of layout assignment, but it
+  helps stabilize the local-path trajectory
+- final query position matters; the representation is not just an unordered bag
+  of visual summaries
+
+### 3. Query index tracks vertical reading order much more strongly than horizontal order
 
 From `output/causal_token_research/summary.md`:
 
@@ -115,7 +154,7 @@ Interpretation:
   left-to-right sweep
 - column handling appears secondary to vertical progression
 
-### 2. Mid-layer query ablations mostly affect later queries, not earlier ones
+### 4. Mid-layer query ablations mostly affect later queries, not earlier ones
 
 From `output/causal_token_research/summary.md`:
 
@@ -128,7 +167,7 @@ Interpretation:
 - the causal dependency is directional in the expected way
 - later query states depend on earlier query states much more than the reverse
 
-### 3. Final query states linearly encode spatial position very well
+### 5. Final query states linearly encode spatial position very well
 
 From `output/causal_token_research/summary.md`:
 
@@ -141,7 +180,7 @@ Interpretation:
 - by the end of D2E, spatial location is almost linearly recoverable
 - vertical position is especially explicit in the final query representation
 
-### 4. Query banks are fairly decorrelated, but not independent across resolutions
+### 6. Query banks are fairly decorrelated, but not independent across resolutions
 
 From `output/causal_token_research/summary.md`:
 
@@ -155,7 +194,7 @@ Interpretation:
 - some 768 and 1024 query slots still align strongly, suggesting partial
   reuse of ordering structure across resolutions
 
-### 5. Top-K SAE is a better intervention substrate than dense ReLU/L1 SAE
+### 7. Top-K SAE is a better intervention substrate than dense ReLU/L1 SAE
 
 From:
 
@@ -175,7 +214,7 @@ Interpretation:
 - the denser SAE mixes too many subfeatures per sample for clean causal use
 - Top-K loses some fidelity but yields a much better mechanistic handle
 
-### 6. Layer-12 SAE features organize into interpretable reading bands
+### 8. Layer-12 SAE features organize into interpretable reading bands
 
 From `output/sae_layer12_topk64/summary.md` and
 `output/sae_feature_ablation_topk64_groups_l12/summary.md`:

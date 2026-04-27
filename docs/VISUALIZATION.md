@@ -136,10 +136,9 @@ output_dir/
 └── query_to_image/
 ```
 
-The repo already includes example outputs under:
-
-- `output/attention_viz/`
-- `output/sample/`
+Generated visualization outputs are not part of the source layout. Create them
+on demand with `scripts/extract_attention.py`; stale local examples under
+`output/` can be deleted safely.
 
 ## Notes
 

@@ -11,12 +11,13 @@ deepseek-ocr-2/
 ├── src/
 │   ├── analysis/          # Interpretability tooling
 │   ├── benchmarks/        # OmniDocBench helpers
+│   ├── experiments/       # Reusable experiment implementations
 │   ├── inference/         # End-to-end OCR pipeline
 │   ├── models/            # SAM, D2E, projector, full vision stack
 │   ├── preprocessing/     # Global-view + crop preprocessing
 │   ├── visualization/     # Attention and feature plotting
 │   └── config.py          # Shared constants
-├── scripts/               # CLI entry points for experiments and utilities
+├── scripts/               # Thin CLI entry points for experiments and utilities
 ├── tests/                 # CPU-friendly tests + optional GPU checks
 ├── docs/                  # Architecture, API, and research notes
 ├── input/                 # Dataset notes and local inputs
@@ -122,6 +123,15 @@ optional language-model merge at <image> token positions
 - `omnidocbench.py`
   - Dataset-aware loader used by the bulk benchmark runner.
 
+### `src/experiments/`
+
+- `query_trace_mask_ablation.py`
+  - Query-to-layout tracing plus D2E mask/order ablations.
+- `real_doc_ordering.py`
+  - Real-page reading-order probes and query-directionality ablations.
+- `causal_tokens.py`
+  - Synthetic causal-token stimuli, probes, and ablation helpers.
+
 ## Important Structural Details
 
 ### Visual Causal Flow lives inside Qwen2 masking
@@ -151,11 +161,14 @@ The multimodal embedding sequence is:
 
 ## Scripts
 
-The main CLIs are:
+Scripts are CLI wrappers and should not own reusable experiment logic. The main
+CLIs are:
 
 - `scripts/extract_attention.py`
 - `scripts/extract_features.py`
 - `scripts/run_interventions.py`
+- `scripts/run_query_trace_mask_ablation.py`
+- `scripts/run_real_doc_ordering.py`
 - `scripts/run_real_circuit_mapping.py`
 - `scripts/train_sae.py`
 - `scripts/run_sae_feature_ablation.py`
@@ -166,11 +179,16 @@ The main CLIs are:
 
 ## Outputs
 
-The repo already contains experiment artifacts under `output/`, including:
+`output/` is ignored by git and treated as generated data. Keep only outputs
+that back current findings or are needed for reproducibility. Smoke runs,
+dry-runs, and superseded demo outputs can be removed after their scripts pass.
 
-- attention reports
-- causal-token research summaries
-- SAE summaries and ablation summaries
+Current canonical outputs referenced by docs are:
 
-Those saved results are referenced by `docs/RESEARCH_AUDIT.md` and
-`docs/SPARSE_AUTO_ENCODER.md`.
+- `output/query_trace_mask_ablation_v2_full/`
+- `output/causal_token_research/`
+- `output/sae_layer12_l1e2/`
+- `output/sae_layer12_topk64/`
+- `output/sae_feature_ablation_l12/`
+- `output/sae_feature_ablation_topk64_l12/`
+- `output/sae_feature_ablation_topk64_groups_l12/`

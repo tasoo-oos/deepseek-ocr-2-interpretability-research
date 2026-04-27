@@ -184,11 +184,17 @@ result = analyzer.compare(model_inputs, score_fn=my_metric)
 
 ## CLI Scripts
 
+Reusable experiment implementations live under `src/experiments/`; matching
+files in `scripts/` are thin CLI entry points.
+
 | Script | Purpose |
 |--------|---------|
 | `scripts/extract_attention.py` | Extract and visualize D2E attention patterns. Supports `--synthetic` mode (no weights needed) and `--full_report`. |
 | `scripts/extract_features.py` | Capture intermediate activations via hooks, save to `.pt` file. |
 | `scripts/run_interventions.py` | Run ablation experiments (head, query, SAM head) and report embedding norm changes. |
+| `scripts/run_query_trace_mask_ablation.py` | Run the full query-to-layout trace and mask/order ablation experiment. |
+| `scripts/run_real_doc_ordering.py` | Run real-document reading-order probe and ablation experiments. |
+| `scripts/research_causal_tokens.py` | Run the synthetic causal-token study. |
 | `scripts/run_real_circuit_mapping.py` | Map causal D2E sites on OmniDocBench pages by corrupting annotated regions and patching query states. |
 | `scripts/run_omnidocbench.py` | Bulk OmniDocBench inference with filtering, pagination, dry-run, and benchmark-ready markdown export. |
 | `scripts/check_omnidocbench_outputs.py` | Validate OmniDocBench runner outputs and optionally compare against reference markdown. |
@@ -281,8 +287,9 @@ deepseek-ocr-2/
 |   +-- visualization/       # Attention and feature visualization
 |   +-- inference/           # End-to-end pipeline (no vLLM)
 |   +-- benchmarks/          # OmniDocBench dataset loader/runner
+|   +-- experiments/         # Reusable experiment implementations
 |   +-- config.py            # Central constants
-+-- scripts/                 # CLI entry points
++-- scripts/                 # Thin CLI entry points
 +-- tests/                   # Unit and integration coverage
 +-- docs/                    # Architecture, API, and research notes
 +-- input/                   # Dataset notes and sample inputs

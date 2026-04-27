@@ -19,7 +19,7 @@ from src.analysis.sparse_autoencoder import SparseAutoencoder
 from src.models.deepseek_ocr import DeepseekOCRModel
 from src.preprocessing.image_transforms import ImageProcessor
 
-from scripts.research_causal_tokens import build_stimuli, compute_attention_centers, resolve_dtype
+from src.experiments.causal_tokens import build_stimuli, compute_attention_centers, resolve_dtype
 
 
 def parse_args() -> argparse.Namespace:

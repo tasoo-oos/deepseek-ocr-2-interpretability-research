@@ -42,6 +42,34 @@ def test_feature_extractor_hooks(model, dummy_inputs):
     assert "projector" in acts
 
 
+def test_feature_extractor_preserves_repeated_d2e_calls(model):
+    from src.analysis.feature_extractor import FeatureExtractor
+    from src.preprocessing.image_transforms import ImageProcessor
+
+    processor = ImageProcessor(crop_mode=True)
+    image = Image.new("RGB", (1536, 768), color=(192, 192, 192))
+    inputs = processor.process_image(image)
+
+    extractor = FeatureExtractor(model)
+    extractor.register_hooks(d2e_layers=[0], projector=False)
+    acts = extractor.extract(
+        inputs["pixel_values"],
+        inputs["images_crop"],
+        inputs["images_spatial_crop"],
+    )
+
+    sequence = extractor.get_activation_sequence("d2e_layer_0")
+    extractor.clear_hooks()
+
+    assert "d2e_layer_0__call_0" in acts
+    assert "d2e_layer_0__call_1" in acts
+    assert len(sequence) == 2
+    assert sequence[0].shape[0] > 1  # local crops
+    assert sequence[1].shape[0] == 1  # global page
+    assert sequence[0].shape[1] == 288  # 144 image + 144 query tokens
+    assert sequence[1].shape[1] == 512  # 256 image + 256 query tokens
+
+
 def test_intervention_manager_context(model, dummy_inputs):
     from src.analysis.interventions import InterventionManager
 

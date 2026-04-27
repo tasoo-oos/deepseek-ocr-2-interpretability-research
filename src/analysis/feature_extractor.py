@@ -25,6 +25,7 @@ class FeatureExtractor:
     def __init__(self, model: DeepseekOCRModel):
         self.model = model
         self.activations: Dict[str, torch.Tensor] = {}
+        self.activation_sequences: Dict[str, List[torch.Tensor]] = {}
         self.hooks: List[torch.utils.hooks.RemovableHook] = []
 
     def _make_hook(self, name: str) -> Callable:
@@ -32,9 +33,13 @@ class FeatureExtractor:
         def hook(module, input, output):
             # Handle tuple outputs (e.g. Qwen2 layer returns tuple)
             if isinstance(output, tuple):
-                self.activations[name] = output[0].detach().cpu()
+                value = output[0].detach().cpu()
             else:
-                self.activations[name] = output.detach().cpu()
+                value = output.detach().cpu()
+            sequence = self.activation_sequences.setdefault(name, [])
+            sequence.append(value)
+            self.activations[name] = value
+            self.activations[f"{name}__call_{len(sequence) - 1}"] = value
         return hook
 
     def register_hooks(
@@ -94,11 +99,16 @@ class FeatureExtractor:
             Dict mapping hook names to activation tensors.
         """
         self.activations = {}
+        self.activation_sequences = {}
         with torch.no_grad():
             self.model.get_multimodal_embeddings(
                 pixel_values, images_crop, images_spatial_crop
             )
         return dict(self.activations)
+
+    def get_activation_sequence(self, name: str) -> List[torch.Tensor]:
+        """Return every activation captured for a hook in call order."""
+        return list(self.activation_sequences.get(name, []))
 
     def clear_hooks(self) -> None:
         """Remove all registered hooks."""
@@ -106,6 +116,7 @@ class FeatureExtractor:
             handle.remove()
         self.hooks = []
         self.activations = {}
+        self.activation_sequences = {}
 
     def __enter__(self):
         return self

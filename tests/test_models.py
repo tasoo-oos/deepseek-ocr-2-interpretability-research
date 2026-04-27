@@ -74,3 +74,45 @@ def test_deepseek_ocr_model_init():
     assert hasattr(model, 'qwen2_model')
     assert hasattr(model, 'projector')
     assert hasattr(model, 'view_seperator')
+
+
+def test_deepseek_ocr_v1_model_init_is_separate_from_v2():
+    from src.models.deepseek_ocr import DeepseekOCRModel
+    from src.models.deepseek_ocr_v1 import DeepseekOCRV1Model
+
+    model = DeepseekOCRV1Model(
+        sam_model=torch.nn.Identity(),
+        vision_model=torch.nn.Identity(),
+    )
+    assert isinstance(model, DeepseekOCRV1Model)
+    assert not isinstance(model, DeepseekOCRModel)
+    assert hasattr(model, "sam_model")
+    assert hasattr(model, "vision_model")
+    assert not hasattr(model, "qwen2_model")
+    assert model.projector.cfg.input_dim == 2048
+
+
+def test_deepseek_ocr_v1_sam_builder_contract():
+    from src.models.deepseek_ocr_v1 import build_sam_vit_b_v1
+
+    model = build_sam_vit_b_v1()
+    assert model.net_3.out_channels == 1024
+
+
+def test_deepseek_ocr_v1_encode_view_contract():
+    from src.models.deepseek_ocr_v1 import DeepseekOCRV1Model
+
+    class DummySam(torch.nn.Module):
+        def forward(self, x):
+            return torch.zeros(x.shape[0], 1024, 2, 2, dtype=x.dtype, device=x.device)
+
+    class DummyVision(torch.nn.Module):
+        def forward(self, image, patch_embeds):
+            return torch.zeros(image.shape[0], 5, 1024, dtype=image.dtype, device=image.device)
+
+    model = DeepseekOCRV1Model(
+        sam_model=DummySam(),
+        vision_model=DummyVision(),
+    )
+    out = model(torch.zeros(1, 3, 32, 32))
+    assert out.shape == (1, 4, 1280)
