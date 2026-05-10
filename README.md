@@ -34,6 +34,22 @@ uv run python scripts/infer_one.py input.image_file=data/raw/example.png output.
 
 Default inference config lives at `configs/infer.yaml`.
 
+## OmniDocBench
+
+Download OmniDocBench locally with:
+
+```bash
+make download-omnidocbench
+```
+
+The dataset is stored under `data/raw/OmniDocBench/`. Raw dataset files are intentionally ignored and should stay out of GitHub; keep reproducibility through the Hugging Face dataset source instead.
+
+Run a sample page with:
+
+```bash
+uv run python scripts/infer_one.py input.image_file=data/raw/OmniDocBench/images/PPT_1001115_eng_page_003.png output.dir=outputs/runs/omnidocbench_smoke
+```
+
 ## Module Inspection
 
 ```bash
