@@ -1,0 +1,22 @@
+seed: 0
+
+model:
+  name: deepseek-ai/DeepSeek-OCR-2
+  device: cuda
+  dtype: bfloat16
+  attn_implementation: eager
+  trust_remote_code: true
+  use_safetensors: true
+
+infer:
+  prompt: "<image>\n<|grounding|>Convert the document to markdown."
+  base_size: 1024
+  image_size: 768
+  crop_mode: true
+  save_results: true
+
+input:
+  image_file: data/raw/example.png
+
+output:
+  dir: outputs/runs/smoke

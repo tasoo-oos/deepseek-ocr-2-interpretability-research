@@ -1,0 +1,19 @@
+seed: 0
+
+model:
+  name: deepseek-ai/DeepSeek-OCR-2
+  device: cuda
+  dtype: bfloat16
+  attn_implementation: eager
+  trust_remote_code: true
+  use_safetensors: true
+
+patching:
+  clean_image_file: data/raw/clean.png
+  corrupt_image_file: data/raw/corrupt.png
+  target_module: null
+  token_indices: []
+  mode: zero
+
+output:
+  dir: outputs/runs/patching_test
