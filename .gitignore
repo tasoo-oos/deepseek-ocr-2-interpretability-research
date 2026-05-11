@@ -16,6 +16,9 @@ data/processed/
 outputs/runs/
 outputs/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/
 outputs/tmp/
+outputs/module_tree.txt
+logs/*.out
+logs/*.pid
 *.pt
 *.pth
 *.safetensors

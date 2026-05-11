@@ -40,5 +40,20 @@ def load_ocr2(cfg: ModelConfig):
         attn_implementation=cfg.attn_implementation,
         torch_dtype=_torch_dtype(cfg.dtype),
     )
+    _configure_generation_tokens(model, tokenizer)
     model = model.eval().to(cfg.device)
     return model, tokenizer
+
+
+def _configure_generation_tokens(model, tokenizer) -> None:
+    token_fields = {
+        "pad_token_id": tokenizer.pad_token_id,
+        "eos_token_id": tokenizer.eos_token_id,
+        "bos_token_id": tokenizer.bos_token_id,
+    }
+    for field, value in token_fields.items():
+        if value is None:
+            continue
+        setattr(model.config, field, value)
+        if getattr(model, "generation_config", None) is not None:
+            setattr(model.generation_config, field, value)

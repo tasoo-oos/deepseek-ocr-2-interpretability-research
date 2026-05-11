@@ -16,6 +16,7 @@ def run_model_infer(model, tokenizer, cfg, image_file=None, output_dir=None):
         image_size=cfg.infer.image_size,
         crop_mode=cfg.infer.crop_mode,
         save_results=cfg.infer.save_results,
+        eval_mode=cfg.infer.get("eval_mode", False),
     )
 
 
