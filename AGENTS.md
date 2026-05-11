@@ -147,7 +147,7 @@ ps -p PID -o pid,ppid,stat,pcpu,pmem,etime,cmd
 
 - Keep `README.md` practical and user-facing.
 - Keep `AGENTS.md` operational and agent-facing.
-- Use `logs/journel/YYYY-MM-DD_session.md` for human session journals.
+- Use `journel/YYYY-MM-DD_HH:MM_session.md` for human session journals.
 - Use `outputs/runs/{run_name}/log/<timestamp>_<name>.md` for generated experiment summaries.
 - Use `outputs/runs/{run_name}/log/*.out` for detached command stdout/stderr and `outputs/runs/{run_name}/log/*.pid` for process IDs; run artifacts are ignored by git.
 - Markdown logs can be committed when they are small and useful; raw outputs, `.out` logs, PID files, activation dumps, and datasets should not be committed.
