@@ -19,4 +19,8 @@ input:
   image_file: data/raw/example.png
 
 output:
-  dir: outputs/runs/smoke
+  dir: outputs/runs/run_1_smoke
+
+hydra:
+  run:
+    dir: ${output.dir}/log/hydra/${now:%Y-%m-%d}/${now:%H-%M-%S}

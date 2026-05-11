@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+staged_paper_sources="$(git diff --cached --name-only -- paper .githooks/pre-commit scripts/build_paper_pdf.sh | grep -E '^(paper/.*\.(tex|bib)|paper/(figs|tables)/|scripts/build_paper_pdf\.sh|\.githooks/pre-commit)$' || true)"
+
+if [ -z "$staged_paper_sources" ]; then
+  exit 0
+fi
+
+scripts/build_paper_pdf.sh
+git add paper/main.pdf
+
+echo "Built and staged paper/main.pdf"

@@ -66,13 +66,14 @@ uv run python scripts/capture_activations.py capture.modules='["MODULE_NAME_HERE
 Run the OmniDocBench activation survey in a detached background job:
 
 ```bash
-nohup env CUDA_VISIBLE_DEVICES=0 uv run python scripts/run_omnidocbench_activation_survey.py --resume --output-dir outputs/runs/omnidocbench_activation_survey > logs/omnidocbench_activation_survey.out 2>&1 &
+mkdir -p outputs/runs/run_2_omnidocbench_activation_survey/log
+nohup env CUDA_VISIBLE_DEVICES=0 uv run python scripts/run_omnidocbench_activation_survey.py --resume --output-dir outputs/runs/run_2_omnidocbench_activation_survey > outputs/runs/run_2_omnidocbench_activation_survey/log/omnidocbench_activation_survey.out 2>&1 &
 ```
 
 Inspect the survey and write a timestamped Markdown log:
 
 ```bash
-uv run python scripts/inspect_omnidocbench_activation_survey.py --output-dir outputs/runs/omnidocbench_activation_survey --name omnidocbench_activation_survey
+uv run python scripts/inspect_omnidocbench_activation_survey.py --output-dir outputs/runs/run_2_omnidocbench_activation_survey --name omnidocbench_activation_survey
 ```
 
 Verify code changes:
@@ -109,8 +110,8 @@ Avoid upgrading `transformers` casually; newer versions can break remote-code im
 
 ## Long-Running Runs
 
-- Run long jobs detached with `tmux` or another background-job mechanism, and write stdout/stderr under `logs/`.
-- Store PID files under `logs/` when launching detached jobs so status can be checked later.
+- Run long jobs detached with `tmux` or another background-job mechanism, and write stdout/stderr under `outputs/runs/{run_name}/log/`.
+- Store PID files under `outputs/runs/{run_name}/log/` when launching detached jobs so status can be checked later.
 - The high-level DeepSeek `model.infer()` path is single-image and mostly serial; full OmniDocBench activation surveys can become CPU/Python-bound even on an RTX 4090.
 - Observed behavior on this machine: one survey process used about one CPU core, about 9.7 GB GPU memory, and only about 25-30% GPU utilization on dense pages.
 - If throughput matters, prefer sharding over trying to batch through `model.infer()`.
@@ -122,8 +123,9 @@ Avoid upgrading `transformers` casually; newer versions can break remote-code im
 Example two-shard single-GPU launch, only if VRAM headroom is confirmed:
 
 ```bash
-nohup env CUDA_VISIBLE_DEVICES=0 uv run python scripts/run_omnidocbench_activation_survey.py --resume --num-shards 2 --shard-index 0 --output-dir outputs/runs/omnidocbench_activation_survey_sharded > logs/omnidocbench_activation_survey_shard0.out 2>&1 &
-nohup env CUDA_VISIBLE_DEVICES=0 uv run python scripts/run_omnidocbench_activation_survey.py --resume --num-shards 2 --shard-index 1 --output-dir outputs/runs/omnidocbench_activation_survey_sharded > logs/omnidocbench_activation_survey_shard1.out 2>&1 &
+mkdir -p outputs/runs/run_2_omnidocbench_activation_survey_sharded/log
+nohup env CUDA_VISIBLE_DEVICES=0 uv run python scripts/run_omnidocbench_activation_survey.py --resume --num-shards 2 --shard-index 0 --output-dir outputs/runs/run_2_omnidocbench_activation_survey_sharded > outputs/runs/run_2_omnidocbench_activation_survey_sharded/log/omnidocbench_activation_survey_shard0.out 2>&1 &
+nohup env CUDA_VISIBLE_DEVICES=0 uv run python scripts/run_omnidocbench_activation_survey.py --resume --num-shards 2 --shard-index 1 --output-dir outputs/runs/run_2_omnidocbench_activation_survey_sharded > outputs/runs/run_2_omnidocbench_activation_survey_sharded/log/omnidocbench_activation_survey_shard1.out 2>&1 &
 ```
 
 Check status with:
@@ -146,8 +148,8 @@ ps -p PID -o pid,ppid,stat,pcpu,pmem,etime,cmd
 - Keep `README.md` practical and user-facing.
 - Keep `AGENTS.md` operational and agent-facing.
 - Use `logs/journel/YYYY-MM-DD_session.md` for human session journals.
-- Use `logs/<timestamp>_<name>.md` for generated experiment summaries.
-- Use `logs/*.out` for detached command stdout/stderr and `logs/*.pid` for process IDs; these are ignored by git.
+- Use `outputs/runs/{run_name}/log/<timestamp>_<name>.md` for generated experiment summaries.
+- Use `outputs/runs/{run_name}/log/*.out` for detached command stdout/stderr and `outputs/runs/{run_name}/log/*.pid` for process IDs; run artifacts are ignored by git.
 - Markdown logs can be committed when they are small and useful; raw outputs, `.out` logs, PID files, activation dumps, and datasets should not be committed.
 - When documenting an experiment, include the command, output directory, dataset path, model/config notes, verification status, and findings.
 - Update `README.md` for user-facing workflows, `AGENTS.md` for future-agent operating rules, and `data/README.md` for dataset policy changes.

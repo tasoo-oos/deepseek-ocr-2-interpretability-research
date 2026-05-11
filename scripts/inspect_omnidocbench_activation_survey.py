@@ -23,7 +23,9 @@ def fmt(value) -> str:
 
 def load_rows(output_dir: Path) -> list[dict]:
     rows = []
-    for path in sorted(output_dir.glob("activation_summary*.jsonl")):
+    paths = list(output_dir.glob("activation_summary*.jsonl"))
+    paths.extend((output_dir / "log").glob("activation_summary*.jsonl"))
+    for path in sorted(paths):
         with path.open(encoding="utf-8") as handle:
             for line in handle:
                 if line.strip():
@@ -35,12 +37,13 @@ def load_rows(output_dir: Path) -> list[dict]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Inspect OmniDocBench activation survey summaries.")
-    parser.add_argument("--output-dir", default="outputs/runs/omnidocbench_activation_survey_fixed")
-    parser.add_argument("--log-dir", default="logs")
+    parser.add_argument("--output-dir", default="outputs/runs/run_2_omnidocbench_activation_survey")
+    parser.add_argument("--log-dir", default=None)
     parser.add_argument("--name", default="omnidocbench_activation_survey")
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
+    log_dir = Path(args.log_dir) if args.log_dir else output_dir / "log"
     rows = load_rows(output_dir)
     ok_rows = [row for row in rows if row.get("ok")]
     error_rows = [row for row in rows if not row.get("ok")]
@@ -62,7 +65,6 @@ def main() -> None:
             call_counts[module][summary.get("calls", 0)] += 1
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_dir = Path(args.log_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / f"{timestamp}_{args.name}.md"
 

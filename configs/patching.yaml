@@ -16,4 +16,8 @@ patching:
   mode: zero
 
 output:
-  dir: outputs/runs/patching_test
+  dir: outputs/runs/run_3_patching_test
+
+hydra:
+  run:
+    dir: ${output.dir}/log/hydra/${now:%Y-%m-%d}/${now:%H-%M-%S}

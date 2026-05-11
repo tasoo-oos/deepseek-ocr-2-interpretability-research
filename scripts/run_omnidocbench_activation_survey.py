@@ -132,7 +132,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run OCR2 activation summaries over OmniDocBench.")
     parser.add_argument("--config", default="configs/capture.yaml")
     parser.add_argument("--image-dir", default="data/raw/OmniDocBench/images")
-    parser.add_argument("--output-dir", default="outputs/runs/omnidocbench_activation_survey")
+    parser.add_argument("--output-dir", default="outputs/runs/run_2_omnidocbench_activation_survey")
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--module", action="append", dest="modules")
@@ -148,8 +148,9 @@ def main() -> None:
     cfg.infer.eval_mode = True
     cfg.output.dir = args.output_dir
     output_dir = ensure_dir(args.output_dir)
-    transcript_dir = ensure_dir(output_dir / "transcripts")
-    save_config(cfg, output_dir / "config.yaml")
+    log_dir = ensure_dir(output_dir / "log")
+    transcript_dir = ensure_dir(log_dir / "transcripts")
+    save_config(cfg, log_dir / "config.yaml")
 
     image_dir = Path(args.image_dir)
     image_paths = sorted(
@@ -168,7 +169,7 @@ def main() -> None:
     records_name = "activation_summary.jsonl"
     if args.num_shards > 1:
         records_name = f"activation_summary_shard-{args.shard_index:03d}-of-{args.num_shards:03d}.jsonl"
-    records_path = output_dir / records_name
+    records_path = log_dir / records_name
     done = completed_images(records_path) if args.resume else set()
     modules = args.modules or DEFAULT_MODULES
 
@@ -184,7 +185,7 @@ def main() -> None:
             if str(image_path) in done:
                 continue
             recorder.clear()
-            page_output_dir = ensure_dir(output_dir / "pages" / image_path.stem)
+            page_output_dir = ensure_dir(log_dir / "pages" / image_path.stem)
             transcript_path = transcript_dir / f"{image_path.stem}.txt"
             started = time.time()
             row = {"image": str(image_path), "ok": False, "modules": modules}

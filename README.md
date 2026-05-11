@@ -24,12 +24,12 @@ Run:
 make smoke
 ```
 
-The smoke run writes to `outputs/runs/smoke/`, including `config.yaml`, `result_repr.txt`, and any files emitted by `model.infer`.
+The smoke run writes artifacts under `outputs/runs/run_1_smoke/log/`, including `config.yaml`, `result_repr.txt`, and any files emitted by `model.infer`.
 
 ## Config-Driven Inference
 
 ```bash
-uv run python scripts/infer_one.py input.image_file=data/raw/example.png output.dir=outputs/runs/example
+uv run python scripts/infer_one.py input.image_file=data/raw/example.png output.dir=outputs/runs/run_1_example
 ```
 
 Default inference config lives at `configs/infer.yaml`.
@@ -47,7 +47,7 @@ The dataset is stored under `data/raw/OmniDocBench/`. Raw dataset files are inte
 Run a sample page with:
 
 ```bash
-uv run python scripts/infer_one.py input.image_file=data/raw/OmniDocBench/images/PPT_1001115_eng_page_003.png output.dir=outputs/runs/omnidocbench_smoke
+uv run python scripts/infer_one.py input.image_file=data/raw/OmniDocBench/images/PPT_1001115_eng_page_003.png output.dir=outputs/runs/run_1_omnidocbench_smoke
 ```
 
 ## Module Inspection
@@ -66,7 +66,7 @@ After identifying module names, run:
 uv run python scripts/capture_activations.py capture.modules='["MODULE_NAME_HERE"]'
 ```
 
-The capture run writes `config.yaml`, `result_repr.txt`, `activations.pt`, and `activation_shapes.json` under `outputs/runs/capture_test/` by default.
+The capture run writes `config.yaml`, `result_repr.txt`, `activations.pt`, and `activation_shapes.json` under `outputs/runs/run_1_capture_test/log/` by default.
 
 ## Artifact Rules
 

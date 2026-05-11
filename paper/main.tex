@@ -1,6 +1,119 @@
 \documentclass{article}
 \input{macros}
+\title{Do Causal-Flow Tokens Encode Reading Order in \modelname?}
+\author{\todo{Author names}}
+\date{}
+
 \begin{document}
-\title{DeepSeek-OCR2 Interpretability}
 \maketitle
+
+\begin{abstract}
+Large document vision-language models must convert two-dimensional page layouts into one-dimensional text sequences, but the internal mechanism by which reading order is formed remains unclear. We study \modelname, whose \encodername{} introduces \flowtokens{} intended to reorder visual information before decoding. We ask whether these tokens are causal carriers of reading order, opaque compression states, or merely inputs that the decoder later reorganizes. We build an intervention framework around the vision tokenizer, causal-flow encoder, projector, and decoder, and use activation summaries, token ablations, query-order perturbations, and clean/corrupt patching to test where reading-order information becomes causally usable. Our current evidence establishes the measurement pipeline and shows a strong layerwise transformation inside the Qwen2 visual encoder; future intervention results will determine whether this transformation corresponds to recoverable reading order.
+\end{abstract}
+
+\section{Introduction}
+
+Document OCR VLMs are increasingly used to convert PDFs, forms, scanned books, tables, and multilingual documents into structured text. Unlike classical OCR systems, these models combine recognition, layout reasoning, and autoregressive text generation in a single pipeline. This makes their failures difficult to diagnose: a wrong Markdown output may reflect visual recognition errors, layout serialization errors, decoder repetition, or a mismatch between visual and textual token order.
+
+\modelname{} is a useful case study because it makes an explicit architectural claim about reading order. Its \encodername{} replaces a CLIP-like encoder with an LLM-style visual encoder. Visual tokens attend bidirectionally, while learned \flowtokens{} attend causally to all visual tokens and preceding query tokens. The model authors suggest that this design allows the encoder to reorder visual information before the language decoder sees it.
+
+This paper asks a narrower mechanistic question: do the encoder's learned causal query tokens cause visual causal flow into the decoder-facing visual token sequence? We treat the paper's architecture claim as a hypothesis to test rather than an assumption. If causal-flow tokens really carry reading order, then perturbing their order or patching them between clean and corrupted documents should specifically alter output reading order. If not, reading order may emerge later in the projector or decoder.
+
+Our planned contributions are:
+
+\begin{enumerate}
+  \item We build a reproducible intervention and activation-capture framework for studying the visual-to-text pathway in \modelname{}.
+  \item We test whether \flowtokens{} encode page-region and reading-order information before decoding.
+  \item We characterize where the model fails on dense layouts and whether those failures localize to the encoder, projector, or decoder.
+\end{enumerate}
+
+\section{Related Work}
+
+\paragraph{Document OCR and document VLMs.}
+Recent document models combine visual encoding with language generation to produce Markdown, layout annotations, tables, formulas, and plain text. \modelname{} builds on this line by making the visual-token budget small while improving reading-order quality on OmniDocBench. The remaining question is whether the reported reading-order gain corresponds to a localized internal mechanism.
+
+\paragraph{Query-token visual bottlenecks.}
+Learned queries are used in DETR-style object detection, Q-Former-style visual compression, and multimodal resamplers. These systems generally use queries as parallel bottlenecks or object slots. \modelname{} differs by imposing a causal structure over query tokens, making it a natural test case for whether ordered query bottlenecks learn ordered document representations.
+
+\paragraph{VLM interpretability.}
+Prior VLM interpretability work uses attention maps, activation patching, token ablations, and head interventions to localize visual grounding and output behavior. For document VLMs, spatially grounded text outputs make causal tests especially attractive, because output spans can often be aligned with page regions.
+
+\section{Model Background}
+
+Let $x$ be a document image. The \modelname{} forward path can be abstracted as
+\begin{align}
+  V &= T(x), \\
+  F &= E_{\mathrm{flow}}(V, Q), \\
+  Z &= P(F), \\
+  y &= D(Z, p),
+\end{align}
+where $T$ is the SAM-style visual tokenizer, $V$ are visual tokens, $Q$ are learned causal query embeddings, $E_{\mathrm{flow}}$ is the Qwen2-style visual encoder, $F$ are the returned causal-flow token states, $P$ is the projector, $D$ is the DeepSeek decoder, and $p$ is the text prompt.
+
+Inside \encodername{}, the Qwen2 visual encoder processes a concatenated sequence $[V; Q]$. Visual tokens can attend to visual tokens bidirectionally. Query tokens can attend to all visual tokens and earlier query tokens. The model returns only the query-token half after the visual encoder, so the decoder receives $F$ rather than raw visual-token states.
+
+\section{Methods}
+
+\subsection{Activation Capture}
+
+We record activation summaries and targeted full tensors from the following pathway:
+\begin{center}
+image $\rightarrow$ SAM tokenizer $\rightarrow$ Qwen2 visual encoder $\rightarrow$ causal-flow outputs $\rightarrow$ projector $\rightarrow$ decoder.
+\end{center}
+
+For broad dataset sweeps, we store summary statistics rather than full tensors: shape, dtype, mean, standard deviation, mean absolute value, minimum, maximum, and call count. For targeted single-page runs, we store full tensors for selected modules.
+
+\subsection{Output-Span Alignment}
+
+To test reading-order claims, generated output spans must be aligned with source page regions. We will use synthetic documents with known text boxes and selected real pages with annotations or manually checked spans. Each aligned span $s_j$ has a page region $b_j$ and an output-token interval $[a_j, c_j]$.
+
+\subsection{Query-Token Ablation and Permutation}
+
+We intervene on final causal-flow outputs before the projector. Planned interventions include zero ablation, mean replacement, Gaussian noise, query-order reversal, random permutation, and local/global-only permutations. If causal-flow token order is the decoder-facing reading-order channel, order perturbations should selectively damage layout serialization.
+
+\subsection{Clean/Corrupt Activation Patching}
+
+For a clean image $x_c$ and corrupted image $x_r$, we patch hidden states from clean into corrupt runs:
+\begin{equation}
+  h_r^{(\ell, i)} \leftarrow h_c^{(\ell, i)}.
+\end{equation}
+We compare patching visual-token positions, causal-query positions, projector outputs, and decoder states. Recovery will be measured with exact text recovery, reading-order edit distance, and normalized logit recovery where available.
+
+\section{Experiments}
+
+\subsection{Experiment 1: Do Causal-Flow Tokens Align With Page Reading Order?}
+
+We estimate whether flow-token index correlates with output reading-order index. For each aligned output span, we identify causal-flow tokens whose ablation or patching most affects that span. We compare induced token order with ground-truth region order.
+
+\subsection{Experiment 2: Where Does Reading-Order Information Become Causally Usable?}
+
+We sweep patching layers across the visual encoder and early decoder. If reading order is formed inside \encodername{}, late query-token patching should recover corrupted reading order more strongly than visual-token or decoder controls.
+
+\subsection{Experiment 3: Are Query-Order Perturbations Specifically Harmful?}
+
+We reverse and randomly permute final causal-flow outputs before the projector. We compare against matched noise and projector-output perturbations. Strong sensitivity to query order would support the causal-flow hypothesis.
+
+\subsection{Experiment 4: What Fails on Dense Layouts?}
+
+We analyze newspapers, tables, and multi-column pages where generation is long or reading order fails. We test whether failures correspond to weak query-token locality, excessive decoder length, or late decoder-side reordering.
+
+\section{Current Results}
+
+We completed a full OmniDocBench activation-summary sweep over 1651 pages with zero failures. The sweep records high-value visual causal-flow modules and decoder controls. The Qwen2 visual encoder shows a strong activation-scale ramp across depth: mean absolute activation increases from 0.116 at layer 0 to 1.264 at layer 23. The final causal-query-only output has mean absolute activation 0.305, and projector output has mean absolute activation 0.177.
+
+These observations confirm that the measurement pipeline is stable and that the visual encoder performs a large transformation before returning causal-query states. They do not yet establish that this transformation is reading-order causal; intervention experiments are required.
+
+\section{Discussion}
+
+The central hypothesis remains open: causal-flow tokens may encode local reading paths, global reading order, opaque compressed visual features, or decoder-facing latent variables that only become ordered downstream. The first activation sweep narrows the target by showing that late Qwen2 visual-encoder layers are high-activity intervention sites and that the exposed Qwen2 output is already query-only.
+
+\section{Limitations}
+
+This work is model-specific to \modelname{}. Broad sweeps currently store summaries, not full tensors. Patching can create out-of-distribution hidden states. Output-span alignment may be noisy on real documents. The current evidence is descriptive and must not be used to claim mechanism without ablation or patching controls.
+
+\section{Conclusion}
+
+We frame \modelname{} as a test case for whether causally masked visual query tokens form a recoverable reading-order representation. The current infrastructure and activation sweep identify the relevant pathway and intervention points. The next step is direct query-token ablation, permutation, and clean/corrupt patching before the projector.
+
+\bibliographystyle{plain}
+\bibliography{refs}
 \end{document}
